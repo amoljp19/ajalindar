@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -20,6 +21,8 @@ public class MainActivity extends AppCompatActivity {
   TextView counterTextView, timerTextView;
   ScrollView scrollView;
 
+  final Counter counter1 = new Counter();
+  private boolean isFinished = false;
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -44,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
     handler = new Handler();
 
     final ArrayList<CounterThread> threads = new ArrayList<>();
-    for (int i = 0; i < ThreadLocalRandom.current().nextInt(10, 25); i++) {
+    for (int i = 0; i < 2/*ThreadLocalRandom.current().nextInt(10, 25)*/; i++) {
       threads.add(new CounterThread());
     }
 
@@ -52,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
       thread.start();
     }
 
-    new CountDownTimer(10000, 1000) {
+     CountDownTimer cdt = new CountDownTimer(10000, 1000) {
 
       @Override
       public void onTick(long millisUntilFinished) {
@@ -61,41 +64,71 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onFinish() {
+        isFinished = true;
+
         for (CounterThread thread : threads) {
-          thread.interrupt();
+           thread.interrupt();
         }
-        counterTextView.append(
-            "\nTimer completed. Created " + threads.size() + " threads and counter is " + counter
-                + "\n");
-        scrollView.fullScroll(View.FOCUS_DOWN);
+
+        /*counterTextView.append(
+                "\nTimer completed. Created " + 2 *//*threads.size()*//* + " threads and counter is " + counter
+                        + "\n");
+        scrollView.fullScroll(View.FOCUS_DOWN);*/
       }
     }
         .start();
+
   }
 
-  private final class CounterThread extends Thread {
+  private class CounterThread extends Thread {
 
     @Override
     public void run() {
-      super.run();
 
-      for (int i = 0; i < 10; i++) {
-        try {
-          Thread.sleep(ThreadLocalRandom.current().nextInt(50, 2000));
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
+      synchronized (counter1) {
+        if(!isFinished) {
+          for (int i = 0; i < 10; i++) {
+            try {
+              Thread.sleep(1000/*ThreadLocalRandom.current().nextInt(50, 2000)*/);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
 
-        ++counter;
+            //++counter;
 
-        handler.post(new Runnable() {
-          @Override
-          public void run() {
-            counterTextView.append("Counter is " + counter + "\n");
-            scrollView.fullScroll(View.FOCUS_DOWN);
+            counter = counter1.increment();
+            handler.post(new Runnable() {
+              @Override
+              public void run() {
+                counterTextView.append("Counter is " + counter + "\n");
+                scrollView.fullScroll(View.FOCUS_DOWN);
+              }
+            });
           }
-        });
+
+         /* if (counter == 2 * 10) {*/
+            handler.post(new Runnable() {
+              @Override
+              public void run() {
+                counterTextView.append(
+                        "\nTimer completed. Created " + 2 /*threads.size()*/ + " threads and counter is " + counter
+                                + "\n");
+                scrollView.fullScroll(View.FOCUS_DOWN);
+              }
+            });
+          //}
+        }
       }
+    }
+  }
+
+  public static class Counter {
+    private AtomicInteger value = new AtomicInteger();
+    public int getValue(){
+      return value.get();
+    }
+    public int increment() {
+      return value.incrementAndGet();
     }
   }
 }
